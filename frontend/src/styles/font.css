@@ -1,0 +1,28 @@
+@font-face {
+  font-display: swap;
+  font-style: normal;
+  src: url("/public/fonts/PublicSansBold.ttf");
+  font-family: "Public Sans";
+  font-weight: 700;
+}
+@font-face {
+  font-display: swap;
+  font-style: normal;
+  src: url("/public/fonts/PublicSansMedium.ttf");
+  font-family: "Public Sans";
+  font-weight: 500;
+}
+@font-face {
+  font-display: swap;
+  font-style: normal;
+  src: url("/public/fonts/PublicSansBlack.ttf");
+  font-family: "Public Sans";
+  font-weight: 900;
+}
+@font-face {
+  font-display: swap;
+  font-style: normal;
+  src: url("/public/fonts/PublicSansRegular.ttf");
+  font-family: "Public Sans";
+  font-weight: 400;
+}
