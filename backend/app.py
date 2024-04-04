@@ -1,51 +1,51 @@
-from flask import Flask, send_file, request, jsonify, session
-from flask_session import Session
 import logging
-from flask_cors import CORS
-from werkzeug.utils import secure_filename
 import os
-from dotenv import load_dotenv, find_dotenv
+import re
+from datetime import datetime
+
 import docx
+import google.generativeai as genai
+import markdown
 # from pypdf import PdfReader
 import pytesseract
+from dotenv import find_dotenv, load_dotenv
+from flask import Flask, jsonify, request, send_file, session
+from flask_cors import CORS
+from flask_session import Session
 from PIL import Image
-from reportlab.lib.pagesizes import letter
-from datetime import datetime
-import markdown
-
 from PyPDF2 import PdfReader
-import re
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, inch, landscape
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.pagesizes import inch, landscape, letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.platypus.tables import Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+from werkzeug.utils import secure_filename
 
 # from nlp_summary import generate_summary_gpu
 # from translate import english_to_hindi
 
-import google.generativeai as genai
-genai.configure(api_key="AIzaSyB_7sOvNm_YR_sdqgPd4W3HB8E29pyBiiI")
+
+genai.configure(api_key=os.getenv("API_KEY"))
 model = genai.GenerativeModel("gemini-pro")
 chat = model.start_chat()
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('HELLO WORLD')
+logger = logging.getLogger("HELLO WORLD")
 
 input_filedir = "pdfs/"
-UPLOAD_FOLDER = './New'
-ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+UPLOAD_FOLDER = "./New"
+ALLOWED_EXTENSIONS = set(["txt", "pdf", "png", "jpg", "jpeg", "gif"])
 
 app = Flask(__name__)
 app.secret_key = "arsdkfja"
-SESSION_TYPE="filesystem"
+SESSION_TYPE = "filesystem"
 app.config.from_object(__name__)
 Session(app)
 CORS(app)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-CORS(app, expose_headers='Authorization')
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+CORS(app, expose_headers="Authorization")
+
 
 class readFile:
     # Allowed FileTypes: pdf, docx, jpg, png, txt
@@ -54,15 +54,15 @@ class readFile:
         self.filepath = filepath
 
     def read_file(self):
-        file_extension = self.filepath.split('.')[-1].lower()
+        file_extension = self.filepath.split(".")[-1].lower()
 
-        if file_extension == 'pdf':
+        if file_extension == "pdf":
             return self.read_pdf()
-        elif file_extension == 'jpg':
+        elif file_extension == "jpg":
             return self.read_jpg()
-        elif file_extension == 'docx':
+        elif file_extension == "docx":
             return self.read_docx()
-        elif file_extension == 'txt':
+        elif file_extension == "txt":
             return self.read_txt()
         else:
             print("Unsupported file type.")
@@ -70,12 +70,12 @@ class readFile:
     def read_pdf(self):
         pdf = PdfReader(self.filepath)
         global extracted_text
-        extracted_text = ''
+        extracted_text = ""
         for page_num in range(len(pdf.pages)):
             page = pdf.pages[page_num]
             text = page.extract_text()
             extracted_text += "\n" + text
-        
+
         return extracted_text
 
     def read_docx(self):
@@ -83,7 +83,7 @@ class readFile:
         fullText = []
         for para in doc.paragraphs:
             fullText.append(para.text)
-        text = '\n'.join(fullText)
+        text = "\n".join(fullText)
         return text
 
     def read_jpg(self):
@@ -92,11 +92,13 @@ class readFile:
         return text
 
     def read_txt(self):
-        with open(self.filepath, 'r', encoding='utf-8') as file:
+        with open(self.filepath, "r", encoding="utf-8") as file:
             text = file.read()
         return text
 
+
 _ = load_dotenv(find_dotenv())
+
 
 def get_completion(prompt):
     messages = [{"role": "user", "content": prompt}]
@@ -142,37 +144,37 @@ class summary:
 
         if hindi:
             return english_to_hindi(markdown.markdown(res.text))
-        
+
         return markdown.markdown(res.text)
 
 
 def text_to_pdf(text):
     # Define custom styles
     heading_style = ParagraphStyle(
-        name='HeadingStyle',
+        name="HeadingStyle",
         fontSize=16,
         textColor=colors.blue,
         alignment=1,  # Center alignment
     )
 
     subheading_style = ParagraphStyle(
-        name='SubheadingStyle',
+        name="SubheadingStyle",
         fontSize=12,
         textColor=colors.red,
         alignment=0,  # Left alignment
     )
 
     title_style = ParagraphStyle(
-        name='TitleStyle',
+        name="TitleStyle",
         fontSize=16,
         textColor=colors.black,
         alignment=1,  # Center alignment
-        fontName='Helvetica-Bold',
-        leading=18
+        fontName="Helvetica-Bold",
+        leading=18,
     )
 
-    bold_style = getSampleStyleSheet()['Normal']
-    bold_style.fontName = 'Helvetica'
+    bold_style = getSampleStyleSheet()["Normal"]
+    bold_style.fontName = "Helvetica"
 
     # Create a SimpleDocTemplate to handle word wrapping
     global pdf_filename
@@ -181,21 +183,32 @@ def text_to_pdf(text):
 
     # Create a SimpleDocTemplate to handle word wrapping
     doc = SimpleDocTemplate(pdf_filename, pagesize=letter)
-    line_break_words = ["Clauses", "Case Description",
-                        "Issues Addressed", "References", "Note"]
+    line_break_words = [
+        "Clauses",
+        "Case Description",
+        "Issues Addressed",
+        "References",
+        "Note",
+    ]
 
     # Create a list to hold the flowable elements (e.g., paragraphs)
     story = []
 
     # Split the input text into paragraphs based on empty lines
-    paragraphs = re.split(r'\n\s*\n', text.strip())
+    paragraphs = re.split(r"\n\s*\n", text.strip())
 
     for paragraph in paragraphs:
         # Find and style specific words within the paragraph
-        paragraph = re.sub(r'\b(Case Description|Clauses|Issues Addressed|References|Note|Signed by)\b',
-                           r'<b><font size="13">\1</font></b>', paragraph)
         paragraph = re.sub(
-            r'\b(Document ID|Document Name|Document Type|Creation Date|Names of the Parties Involved|Author|Client Name|Case Number)\b', r'<b><i>\1</i></b>', paragraph)
+            r"\b(Case Description|Clauses|Issues Addressed|References|Note|Signed by)\b",
+            r'<b><font size="13">\1</font></b>',
+            paragraph,
+        )
+        paragraph = re.sub(
+            r"\b(Document ID|Document Name|Document Type|Creation Date|Names of the Parties Involved|Author|Client Name|Case Number)\b",
+            r"<b><i>\1</i></b>",
+            paragraph,
+        )
 
         if paragraph.startswith("Title:"):
             # Apply title_style to the title and move to the next line
@@ -215,20 +228,20 @@ def text_to_pdf(text):
     doc.build(story)
     return pdf_filename
 
-@app.route('/upload', methods=['POST'])
+
+@app.route("/upload", methods=["POST"])
 def fileUpload():
 
     target = os.path.join(UPLOAD_FOLDER)
     if not os.path.isdir(target):
         os.mkdir(target)
     logger.info("welcome to upload`")
-    file = request.files['file']
+    file = request.files["file"]
     filename = secure_filename(file.filename)
     destination = "/".join([target, filename])
     file.save(destination)
     response = "Whatever you wish too return"
-    text = readFile(
-        destination).read_file()
+    text = readFile(destination).read_file()
 
     len(text)
 
@@ -240,7 +253,7 @@ def fileUpload():
     return response
 
 
-@app.route('/get-pdf', methods=['GET'])
+@app.route("/get-pdf", methods=["GET"])
 def get_pdf():
     # Replace 'path_to_your_pdf.pdf' with the actual path to your PDF file
     # return send_file(f"./{pdf_filename}", as_attachment=True)
@@ -248,9 +261,10 @@ def get_pdf():
     filename = request.json.get("filename", None)
     if not filename:
         return "No filename was provided", 400
-    
+
     file_path = os.path.join(input_filedir, filename)
     return send_file(file_path, as_attachment=True)
+
 
 @app.route("/get_response", methods=["GET", "POST"])
 def get_response():
@@ -258,13 +272,13 @@ def get_response():
     user_input = request.json["input"]
     return [get_completion(user_input)]
 
+
 class generate:
 
     def __init__(self, row_values):
         self.row_values = row_values
 
     def document(self):
-
 
         prompt = f"""
         You are given a input list which consists values in the dictionary form of
@@ -299,15 +313,15 @@ class generate:
 def style_text(text):
     # Define custom styles
     title_style = ParagraphStyle(
-        name='TitleStyle',
+        name="TitleStyle",
         fontSize=18,
         textColor=colors.black,
         alignment=1,  # Center alignment
-        fontName='Helvetica-Bold',
+        fontName="Helvetica-Bold",
     )
 
-    bold_style = getSampleStyleSheet()['Normal']
-    bold_style.fontName = 'Helvetica'
+    bold_style = getSampleStyleSheet()["Normal"]
+    bold_style.fontName = "Helvetica"
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     pdf_filename = f"output_{timestamp}.pdf"
@@ -319,12 +333,15 @@ def style_text(text):
     story = []
 
     # Split the input text into paragraphs based on empty lines
-    paragraphs = re.split(r'\n\s*\n', text.strip())
+    paragraphs = re.split(r"\n\s*\n", text.strip())
 
     for paragraph in paragraphs:
         # Find and style specific words within the paragraph
         paragraph = re.sub(
-            r'\b(Introduction/Preamble|Recitals/Consideration|Definitions|Miscellaneous Clauses|Termination Conditions|Remedies|Operative Clauses/Agreement)\b', r'<b>\1</b>', paragraph)
+            r"\b(Introduction/Preamble|Recitals/Consideration|Definitions|Miscellaneous Clauses|Termination Conditions|Remedies|Operative Clauses/Agreement)\b",
+            r"<b>\1</b>",
+            paragraph,
+        )
 
         # Create a Paragraph with word wrap and apply the appropriate style
         if paragraph.startswith("Title:"):
@@ -340,7 +357,8 @@ def style_text(text):
 
     doc.build(story)
 
-@app.route('/api/receive-json', methods=['POST'])
+
+@app.route("/api/receive-json", methods=["POST"])
 def receive_json():
     data = request.json  # JSON data sent from React
     print(data)  # You can process or log the data as needed
@@ -348,40 +366,42 @@ def receive_json():
     style_text(text)
     # result=generate(data).document
     # style_text(result)
-    return jsonify({'message': 'JSON data received successfully'})
+    return jsonify({"message": "JSON data received successfully"})
+
 
 # @app.route("/summarize", methods=["POST"])
 # def nlp_summarize():
-    # input_filename = "file"
+# input_filename = "file"
 
-    # # Create the directory for temporarily save the pdfs
-    # os.makedirs(input_filedir, exist_ok=True)
+# # Create the directory for temporarily save the pdfs
+# os.makedirs(input_filedir, exist_ok=True)
 
-    # print(request.files)
+# print(request.files)
 
-    # if input_filename not in request.files:
-    #     return "No file found", 400
+# if input_filename not in request.files:
+#     return "No file found", 400
 
-    # # uploaded file
-    # file = request.files[input_filename]
+# # uploaded file
+# file = request.files[input_filename]
 
-    # if len(file.filename) == 0:
-    #     return "No file selected for uploading", 400
+# if len(file.filename) == 0:
+#     return "No file selected for uploading", 400
 
-    # file_path = os.path.join(input_filedir, file.filename)
-    # file.save(file_path)
+# file_path = os.path.join(input_filedir, file.filename)
+# file.save(file_path)
 
-    # file_reader = readFile(file_path)
-    # extracted_text = file_reader.read_file()
+# file_reader = readFile(file_path)
+# extracted_text = file_reader.read_file()
 
-    # with open("summary.txt", "w") as f:
-    #     f.write(extracted_text)
+# with open("summary.txt", "w") as f:
+#     f.write(extracted_text)
 
-    # summary = generate_summary_gpu(extracted_text)
+# summary = generate_summary_gpu(extracted_text)
 
-    # pdf_filename = text_to_pdf(summary)
+# pdf_filename = text_to_pdf(summary)
 
-    # return { "filename": pdf_filename }
+# return { "filename": pdf_filename }
+
 
 @app.route("/summarize", methods=["POST"])
 def summarize():
@@ -423,33 +443,39 @@ def summarize():
     pdf_filename = text_to_pdf(summary_text)
     return send_file(pdf_filename)
 
+
 @app.route("/generate-document", methods=["POST"])
 def generate_document():
     jsonData = request.json.get("data")
 
     text = generate(jsonData).document()
 
-
     res = model.generate_content(text)
     filename = text_to_pdf(res.text)
 
-    return send_file(open(filename, 'rb'), as_attachment=True, download_name=filename, max_age=50000)      
+    return send_file(
+        open(filename, "rb"), as_attachment=True, download_name=filename, max_age=50000
+    )
+
 
 @app.route("/chat", methods=["POST"])
 def chat():
 
     user_prompt = request.json.get("prompt")
 
-    res = model.generate_content(f"""
+    res = model.generate_content(
+        f"""
     You have been given text extracted from a legal document along with a prompt given by a user. Answer the prompt based on the information given in the text.
     Text:
     {session.get("original")}
 
     Prompt:
     {user_prompt}
-""")
-       
+"""
+    )
+
     return res.text
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", use_reloader=True)
